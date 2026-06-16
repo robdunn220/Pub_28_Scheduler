@@ -34,11 +34,11 @@ export ANTHROPIC_API_KEY="sk-ant-..."      # Claude
 export GEMINI_API_KEY="..."                # Gemini (Flash)
 ```
 
-By default the app uses Gemini; if only a Claude key is present it uses Claude. To force a
+By default the app uses Claude; if only a Gemini key is present it uses Gemini. To force a
 provider regardless of which keys are set:
 
 ```bash
-export SCHEDULER_AI_PROVIDER=claude        # or: gemini
+export SCHEDULER_AI_PROVIDER=gemini        # or: claude
 export GEMINI_MODEL=gemini-2.5-flash       # optional; this is the default Flash model
 ```
 
