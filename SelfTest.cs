@@ -13,9 +13,9 @@ public static class SelfTest
         {
             var svc = new SchedulerService(dbPath);
 
-            Console.WriteLine("== Seeded employees ==");
+            Console.WriteLine("== Seeded employees (FOH listed before BOH) ==");
             foreach (var e in svc.ListEmployees())
-                Console.WriteLine($"  {e.Name}");
+                Console.WriteLine($"  {e.Name} [{e.Area}]");
 
             Console.WriteLine("\n== Seeded shifts ==");
             foreach (var s in svc.ListShifts())
@@ -30,14 +30,26 @@ public static class SelfTest
                 Console.WriteLine("  " + svc.AssignShift(open.Id, "Tom").Message);
 
             Console.WriteLine("\n== Day-off + double-booking checks ==");
-            // Sarah is seeded with bartender 5:00pm–Close on Friday 2026-06-19. 2026-06-22 is a Monday.
-            Console.WriteLine("  " + svc.MarkUnavailable("Sarah", (int)DayOfWeek.Monday));
+            // Sarah is seeded with bartender 5:00pm–Close on Friday 2026-06-19. Mark a specific date off.
+            Console.WriteLine("  " + svc.MarkUnavailable("Sarah", "2026-06-22"));
             Console.WriteLine("  double-book (Fri 5pm-Close): " +
                 svc.AddShift("2026-06-19", "5:00pm", "Close", "server", "Sarah").Message);
-            Console.WriteLine("  day off (Mon): " +
+            Console.WriteLine("  day off (2026-06-22): " +
                 svc.AddShift("2026-06-22", "5:00pm", "Close", "server", "Sarah").Message);
+            Console.WriteLine("  same weekday, different week stays AVAILABLE (2026-06-29): " +
+                svc.AddShift("2026-06-29", "5:00pm", "Close", "server", "Sarah").Message);
             Console.WriteLine("  override w/ force: " +
                 svc.AddShift("2026-06-22", "5:00pm", "Close", "server", "Sarah", force: true).Message);
+
+            Console.WriteLine("\n== Marking off frees an already-assigned shift ==");
+            // Sarah holds the seeded Friday 2026-06-19 bartender shift. Tell her to take that day off.
+            Console.WriteLine("  before: Sarah on Fri = " +
+                string.Join(", ", svc.ShiftsForEmployee("Sarah").Where(s => s.Day == "2026-06-19").Select(s => $"#{s.Id}")));
+            Console.WriteLine("  " + svc.MarkUnavailable("Sarah", "2026-06-19"));
+            Console.WriteLine("  after:  Sarah on Fri = " +
+                string.Join(", ", svc.ShiftsForEmployee("Sarah").Where(s => s.Day == "2026-06-19").Select(s => $"#{s.Id}")) + " (should be empty)");
+            Console.WriteLine("  freed shift now appears as open: " +
+                string.Join(", ", svc.ListOpenShifts().Where(s => s.Day == "2026-06-19").Select(s => $"#{s.Id} {s.Role}")));
 
             Console.WriteLine("\n== Swap shifts (simulating swap_shifts) ==");
             Console.WriteLine("  " + svc.SwapShifts(1, 2).Message);
@@ -45,8 +57,10 @@ public static class SelfTest
                 Console.WriteLine($"    #{s.Id} {s.Role} -> {s.EmployeeName ?? "OPEN"}");
 
             Console.WriteLine("\n== Hire & fire (add/remove employee) ==");
-            svc.AddEmployee("Dana Cole");
-            Console.WriteLine("  after hire:  " + string.Join(", ", svc.ListEmployees().Select(e => e.Name)));
+            svc.AddEmployee("Dana Cole", HouseArea.BOH);
+            Console.WriteLine("  after hire:  " + string.Join(", ", svc.ListEmployees().Select(e => $"{e.Name} [{e.Area}]")));
+            Console.WriteLine("  " + svc.SetEmployeeArea("Dana", HouseArea.FOH));
+            Console.WriteLine("  after move:  " + string.Join(", ", svc.ListEmployees().Select(e => $"{e.Name} [{e.Area}]")));
             Console.WriteLine("  " + svc.RemoveEmployee("Tom"));
             Console.WriteLine("  after fire:  " + string.Join(", ", svc.ListEmployees().Select(e => e.Name)));
 
@@ -59,11 +73,43 @@ public static class SelfTest
             foreach (var s in svc.ShiftsForEmployee("Sarah"))
                 Console.WriteLine($"  #{s.Id} {s.Day} {s.Role}");
 
+            CheckAssistantSchemas(svc);
+
             Console.WriteLine("\nSELFTEST OK");
         }
         finally
         {
             if (File.Exists(dbPath)) File.Delete(dbPath);
         }
+    }
+
+    /// <summary>
+    /// Offline (no key, no network) check that BOTH providers convert the shared tool catalogue
+    /// into their own schema without error, and that each provider constructs and degrades
+    /// gracefully when no API key is set. Throws if a count doesn't match so --selftest fails loudly.
+    /// </summary>
+    private static void CheckAssistantSchemas(SchedulerService svc)
+    {
+        Console.WriteLine("\n== Assistant tool schemas build offline (no key/network) ==");
+
+        int defs = SchedulerTools.Definitions.Count;
+        int claudeCount = ClaudeAssistant.ToolSchemaCount();
+        int geminiCount = GeminiAssistant.ToolSchemaCount();
+        Console.WriteLine($"  shared definitions:     {defs}");
+        Console.WriteLine($"  Claude tools built:     {claudeCount}");
+        Console.WriteLine($"  Gemini functions built: {geminiCount}");
+
+        if (claudeCount != defs || geminiCount != defs)
+            throw new Exception($"Tool schema count mismatch (defs={defs}, claude={claudeCount}, gemini={geminiCount}).");
+
+        // Constructing each provider with no key should succeed and simply report HasApiKey=false.
+        var claude = new ClaudeAssistant(svc);
+        var gemini = new GeminiAssistant(svc);
+        Console.WriteLine($"  Claude:  provider={claude.ProviderName}, key={claude.ApiKeyEnvVar}, HasApiKey={claude.HasApiKey}");
+        Console.WriteLine($"  Gemini:  provider={gemini.ProviderName}, key={gemini.ApiKeyEnvVar}, HasApiKey={gemini.HasApiKey}");
+
+        // Show the Gemini function-call schema so the (new, unverified) wire format can be eyeballed.
+        Console.WriteLine("  Gemini functionDeclarations JSON:");
+        Console.WriteLine(GeminiAssistant.ToolSchemaJson());
     }
 }

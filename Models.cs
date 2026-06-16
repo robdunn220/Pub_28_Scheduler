@@ -1,10 +1,32 @@
 namespace PublicHouse28Scheduler;
 
+/// <summary>Which part of the house a staff member works: Front (bar/servers/hosts) or Back (kitchen).</summary>
+public enum HouseArea { FOH, BOH }
+
 /// <summary>A staff member at Public House 28.</summary>
 public class Employee
 {
     public int Id { get; set; }
     public string Name { get; set; } = "";
+
+    /// <summary>Front-of-house or back-of-house. Defaults to FOH.</summary>
+    public HouseArea Area { get; set; } = HouseArea.FOH;
+}
+
+/// <summary>Display helpers for <see cref="HouseArea"/>.</summary>
+public static class HouseAreaExtensions
+{
+    public static string LongName(this HouseArea area) =>
+        area == HouseArea.BOH ? "Back of House" : "Front of House";
+
+    /// <summary>Parse "FOH"/"BOH" (or longer spellings); defaults to FOH when unclear.</summary>
+    public static HouseArea ParseArea(string? s)
+    {
+        s = s?.Trim();
+        if (string.IsNullOrEmpty(s)) return HouseArea.FOH;
+        if (s.StartsWith("B", StringComparison.OrdinalIgnoreCase)) return HouseArea.BOH;
+        return HouseArea.FOH;
+    }
 }
 
 /// <summary>A single shift on the schedule. May be unassigned (open).</summary>

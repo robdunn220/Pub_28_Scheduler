@@ -12,7 +12,7 @@ namespace PublicHouse28Scheduler;
 public partial class MainWindow : Window
 {
     private readonly SchedulerService _svc;
-    private readonly ClaudeAssistant _assistant;
+    private readonly IAssistant _assistant;
 
     public MainWindow()
     {
@@ -21,7 +21,7 @@ public partial class MainWindow : Window
         // schedule.db lives next to the executable.
         var dbPath = System.IO.Path.Combine(AppContext.BaseDirectory, "schedule.db");
         _svc = new SchedulerService(dbPath);
-        _assistant = new ClaudeAssistant(_svc);
+        _assistant = AssistantFactory.Create(_svc);
 
         SendButton.Click += (_, _) => Send();
         RefreshButton.Click += (_, _) => RefreshSchedule();
@@ -43,10 +43,10 @@ public partial class MainWindow : Window
 
         AddBubble("assistant",
             _assistant.HasApiKey
-                ? "Hi! I manage the Public House 28 schedule. Try: \"Put Sarah on bar Friday 5pm to close\" "
-                  + "or \"Who's working Friday?\""
-                : "⚠️  No API key detected. Set the ANTHROPIC_API_KEY environment variable and restart "
-                  + "to enable the assistant. The schedule on the left still works.");
+                ? $"Hi! I manage the Public House 28 schedule (powered by {_assistant.ProviderName}). "
+                  + "Try: \"Put Sarah on bar Friday 5pm to close\" or \"Who's working Friday?\""
+                : $"⚠️  No API key detected for {_assistant.ProviderName}. Set the {_assistant.ApiKeyEnvVar} environment "
+                  + "variable and restart to enable the assistant. The schedule on the left still works.");
     }
 
     // ---------- weekly grid (days as rows, roles as columns) ----------
@@ -94,14 +94,26 @@ public partial class MainWindow : Window
         foreach (var _ in employees)
             grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star))); // one per employee
 
-        grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto)); // header row
+        grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto)); // area-group row
+        grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto)); // employee-name row
         for (int i = 0; i < 7; i++)
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
-        // Header row: blank corner, one cell per employee name.
-        AddCell(grid, 0, 0, HeaderText(""), header: true);
+        // Row 0: FOH/BOH grouping header, each spanning that area's contiguous columns.
+        // (ListEmployees orders FOH first, then BOH, so each area is one unbroken run.)
+        AddCell(grid, 0, 0, HeaderText(""), header: true, rowSpan: 2);
+        for (int start = 0; start < employees.Count; )
+        {
+            var area = employees[start].Area;
+            int span = 1;
+            while (start + span < employees.Count && employees[start + span].Area == area) span++;
+            AddCell(grid, 0, start + 1, HeaderText(area.LongName()), header: true, colSpan: span, areaHeader: true);
+            start += span;
+        }
+
+        // Row 1: one cell per employee name.
         for (int c = 0; c < employees.Count; c++)
-            AddCell(grid, 0, c + 1, HeaderText(employees[c].Name), header: true);
+            AddCell(grid, 1, c + 1, HeaderText(employees[c].Name), header: true);
 
         // One row per day, Monday → Sunday.
         for (int r = 0; r < 7; r++)
@@ -110,7 +122,7 @@ public partial class MainWindow : Window
             var dayIso = day.ToString("yyyy-MM-dd");
             bool isToday = day == DateTime.Today;
 
-            AddCell(grid, r + 1, 0, new TextBlock
+            AddCell(grid, r + 2, 0, new TextBlock
             {
                 Text = day.ToString("ddd\nMMM d", CultureInfo.InvariantCulture),
                 FontWeight = isToday ? FontWeight.Bold : FontWeight.SemiBold,
@@ -145,7 +157,7 @@ public partial class MainWindow : Window
                     });
                 }
 
-                AddCell(grid, r + 1, c + 1, cell, today: isToday, unavailable: unavailable);
+                AddCell(grid, r + 2, c + 1, cell, today: isToday, unavailable: unavailable);
             }
         }
 
@@ -155,7 +167,7 @@ public partial class MainWindow : Window
     /// <summary>A shift rendered as time + role (+ id). No employee name — that's the column header.</summary>
     private static TextBlock ShiftBlock(Shift s) => new()
     {
-        Text = $"{s.StartTime}–{s.EndTime}\n{Capitalize(s.Role)} (#{s.Id})",
+        Text = $"{s.StartTime}–{s.EndTime}\n{Capitalize(s.Role)}",
         TextWrapping = TextWrapping.Wrap,
         FontSize = 12,
         Foreground = Brushes.Black,
@@ -170,12 +182,17 @@ public partial class MainWindow : Window
     };
 
     private static void AddCell(Grid grid, int row, int col, Control content,
-        bool header = false, bool dayLabel = false, bool today = false, bool unavailable = false)
+        bool header = false, bool dayLabel = false, bool today = false, bool unavailable = false,
+        int colSpan = 1, int rowSpan = 1, bool areaHeader = false)
     {
-        string bg = header      ? "#FFFFFF"
+        string bg = areaHeader  ? "#E4E4E4" // FOH/BOH grouping band, distinct from the white name row
+                  : header      ? "#FFFFFF"
                   : unavailable ? "#D9D9D9"
                   : today       ? "#ECECEC"
                   : (row % 2 == 0 ? "#FFFFFF" : "#F7F7F7");
+
+        if (areaHeader && content is TextBlock tb)
+            tb.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center;
 
         var border = new Border
         {
@@ -188,6 +205,8 @@ public partial class MainWindow : Window
         };
         Grid.SetRow(border, row);
         Grid.SetColumn(border, col);
+        if (colSpan > 1) Grid.SetColumnSpan(border, colSpan);
+        if (rowSpan > 1) Grid.SetRowSpan(border, rowSpan);
         grid.Children.Add(border);
     }
 

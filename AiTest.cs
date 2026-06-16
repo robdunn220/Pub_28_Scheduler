@@ -17,14 +17,15 @@ public static class AiTest
         try
         {
             var svc = new SchedulerService(dbPath);
-            var assistant = new ClaudeAssistant(svc);
+            var assistant = AssistantFactory.Create(svc);
 
             if (!assistant.HasApiKey)
             {
-                Console.WriteLine("No ANTHROPIC_API_KEY in the environment — can't run the live test.");
+                Console.WriteLine($"No {assistant.ApiKeyEnvVar} in the environment — can't run the live test ({assistant.ProviderName}).");
                 return;
             }
 
+            Console.WriteLine($"PROVIDER: {assistant.ProviderName}");
             Console.WriteLine($"PROMPT: {prompt}\n");
             var reply = assistant.SendAsync(prompt).GetAwaiter().GetResult();
             Console.WriteLine($"ASSISTANT:\n{reply}\n");
@@ -38,7 +39,7 @@ public static class AiTest
             {
                 var off = svc.GetDaysOff(e.Name);
                 if (off.Count == 0) continue;
-                Console.WriteLine($"  {e.Name}: off " + string.Join(", ", off.Select(SchedulerService.DayName)));
+                Console.WriteLine($"  {e.Name}: off " + string.Join(", ", off));
             }
         }
         finally

@@ -6,7 +6,8 @@ and Claude updates the schedule for you.
 
 - **UI:** Avalonia (cross-platform .NET — develop on Linux/Mac, ship a native Windows `.exe`)
 - **Data:** local SQLite file (`schedule.db`), created automatically next to the app
-- **AI:** Anthropic Claude (`claude-opus-4-8`) via tool calling — *your* code makes every change
+- **AI:** swappable — Anthropic Claude *or* Google Gemini (Flash), via tool/function calling.
+  *Your* code makes every change either way (see `SchedulerTools.cs`)
 
 ## How the assistant works
 
@@ -19,18 +20,30 @@ database directly; it can only ask the app to perform the defined operations.
 
 - **.NET 8 SDK** (already installed on this machine at `~/.dotnet`; `dotnet` is on your PATH
   via `~/.bashrc`). Verify with `dotnet --version`.
-- An **Anthropic API key** for the assistant. Get one at https://console.anthropic.com/.
+- An API key for **one** assistant provider:
+  - **Anthropic Claude** — get one at https://console.anthropic.com/
+  - **Google Gemini** — get one at https://aistudio.google.com/apikey
 
 ## Setup
 
-Set your API key (the app reads the `ANTHROPIC_API_KEY` environment variable):
+Set the API key for whichever provider you want to use:
 
 ```bash
-export ANTHROPIC_API_KEY="sk-ant-..."      # add to ~/.bashrc to make it permanent
+export ANTHROPIC_API_KEY="sk-ant-..."      # Claude
+# or
+export GEMINI_API_KEY="..."                # Gemini (Flash)
 ```
 
-Without a key, the schedule view still works fully; only the assistant is disabled (it will
-say so on startup).
+By default the app uses Gemini; if only a Claude key is present it uses Claude. To force a
+provider regardless of which keys are set:
+
+```bash
+export SCHEDULER_AI_PROVIDER=claude        # or: gemini
+export GEMINI_MODEL=gemini-2.5-flash       # optional; this is the default Flash model
+```
+
+Without any key, the schedule view still works fully; only the assistant is disabled (it will
+say so on startup, naming the provider and the env var it expects).
 
 ## Run
 
@@ -60,10 +73,13 @@ Set `ANTHROPIC_API_KEY` as a Windows environment variable there too.
 
 | File | Purpose |
 |------|---------|
-| `Models.cs` | `Employee` and `Shift` data classes |
+| `Models.cs` | `Employee` (incl. FOH/BOH area) and `Shift` data classes |
 | `SchedulerService.cs` | SQLite storage + all schedule operations, incl. availability & conflict detection (the source of truth) |
 | `ShiftTime.cs` | Parses free-text times ("5pm", "Close") to detect overlapping shifts |
-| `ClaudeAssistant.cs` | Anthropic SDK, tool definitions, and the tool-calling loop |
+| `SchedulerTools.cs` | Provider-agnostic tool definitions, system prompt, and execution (shared) |
+| `IAssistant.cs` / `AssistantFactory.cs` | Assistant interface + provider selection (Claude vs Gemini) |
+| `ClaudeAssistant.cs` | Anthropic SDK + Claude's tool-calling loop |
+| `GeminiAssistant.cs` | Google Gemini REST + function-calling loop (no SDK dependency) |
 | `MainWindow.axaml` / `.cs` | The window: weekly grid (days as rows, roles as columns) with week navigation + assistant chat |
 | `SelfTest.cs` | Headless `--selftest` check of the data layer |
 
@@ -72,7 +88,8 @@ Set `ANTHROPIC_API_KEY` as a Windows environment variable there too.
 - "Add a bartender shift Saturday 6pm to close and put Marcus on it"
 - "Who's working Friday?"
 - "Show me the open shifts"
-- "Add a new server named Dana who can also host"
+- "Add a new server named Dana" (front of house) or "Hire Alex in the kitchen" (back of house)
+- "Move Marcus to back of house" — the grid regroups him under the BOH header
 - "Move shift 3 to Priya"
 - "Swap shifts 1 and 2" — exchanges who's on each (refused if it would double-book, unless you override)
 - "Sarah's available Fridays 4pm to close" — then try to book her outside that, and it'll refuse
