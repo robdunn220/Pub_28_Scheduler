@@ -1,0 +1,10 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PublicHouse28Scheduler.App"
+             RequestedThemeVariant="Light">
+             <!-- Force Light so the white background / black text scheme is consistent. -->
+
+    <Application.Styles>
+        <FluentTheme />
+    </Application.Styles>
+</Application>

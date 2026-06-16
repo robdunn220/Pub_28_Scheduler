@@ -1,0 +1,13 @@
+# Build output
+bin/
+obj/
+
+# Local runtime database (regenerated on first run)
+schedule.db
+*.db-shm
+*.db-wal
+
+# IDE
+.vs/
+.idea/
+*.user

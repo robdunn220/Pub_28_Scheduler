@@ -1,0 +1,76 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="640"
+        x:Class="PublicHouse28Scheduler.MainWindow"
+        Width="1000" Height="640"
+        Background="White"
+        Title="Public House 28 — Staff Scheduler">
+
+    <!-- Root grid: schedule fills; the chat overlay sits on top, bottom-right. -->
+    <Grid>
+        <DockPanel>
+            <!-- Header -->
+            <Border DockPanel.Dock="Top" Background="White" BorderBrush="Black"
+                    BorderThickness="0,0,0,1" Padding="16,12">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" x:Name="RefreshButton" Content="Refresh"
+                            VerticalAlignment="Center" />
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Public House 28 — Staff Scheduler"
+                                   FontSize="20" FontWeight="Bold" Foreground="Black" />
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <Button x:Name="PrevWeekButton" Content="◀" />
+                            <Button x:Name="TodayButton" Content="This Week" />
+                            <Button x:Name="NextWeekButton" Content="▶" />
+                            <TextBlock x:Name="WeekLabel" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="SemiBold" Foreground="Black" Margin="8,0,0,0" />
+                        </StackPanel>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <!-- Schedule grid (full width) -->
+            <Border BorderBrush="Black" BorderThickness="1,1,0,0" Margin="12">
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <StackPanel x:Name="SchedulePanel" />
+                </ScrollViewer>
+            </Border>
+        </DockPanel>
+
+        <!-- Collapsed launcher -->
+        <Button x:Name="ChatBubbleButton" Content="💬  Assistant"
+                HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,20,20"
+                Background="Black" Foreground="White" FontSize="14" Padding="16,10" CornerRadius="22" />
+
+        <!-- Expanded chat panel -->
+        <Border x:Name="ChatPanelBorder" IsVisible="False"
+                HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,20,20"
+                Width="360" Height="470" Background="White" BorderBrush="Black"
+                BorderThickness="1" CornerRadius="8" BoxShadow="0 4 16 0 #40000000">
+            <DockPanel>
+                <Border DockPanel.Dock="Top" Background="Black" Padding="12,8"
+                        CornerRadius="8,8,0,0">
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" x:Name="ChatCollapseButton" Content="✕"
+                                Background="Transparent" Foreground="White" BorderThickness="0"
+                                Padding="6,2" />
+                        <TextBlock Text="Assistant" Foreground="White" FontWeight="SemiBold"
+                                   FontSize="14" VerticalAlignment="Center" />
+                    </DockPanel>
+                </Border>
+
+                <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto" Margin="8">
+                    <TextBox Grid.Column="0" x:Name="InputBox"
+                             Watermark="e.g. Swap shifts 1 and 2" AcceptsReturn="False" />
+                    <Button Grid.Column="1" x:Name="SendButton" Content="Send" Margin="6,0,0,0" />
+                </Grid>
+
+                <ScrollViewer x:Name="ChatScroll" Margin="8,8,8,0">
+                    <StackPanel x:Name="ChatPanel" Spacing="10" />
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>
