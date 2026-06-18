@@ -16,6 +16,11 @@ You type a request → Claude decides which **tool** to call (`add_shift`, `assi
 with a plain-English confirmation, and the schedule view refreshes. Claude never touches the
 database directly; it can only ask the app to perform the defined operations.
 
+The assistant can also **export the weekly schedule** to a **PDF or PNG** (`export_schedule`):
+ask *"download a PDF of this week's schedule"* and it renders the grid currently on screen,
+saves it to your **Downloads** folder, and opens it. Say *"as a PNG"* for an image instead, or
+name another week to export that one.
+
 ## Prerequisites
 
 - **.NET 8 SDK** (already installed on this machine at `~/.dotnet`; `dotnet` is on your PATH
@@ -77,6 +82,7 @@ Set `ANTHROPIC_API_KEY` as a Windows environment variable there too.
 | `SchedulerService.cs` | SQLite storage + all schedule operations, incl. availability & conflict detection (the source of truth) |
 | `ShiftTime.cs` | Parses free-text times ("5pm", "Close") to detect overlapping shifts |
 | `SchedulerTools.cs` | Provider-agnostic tool definitions, system prompt, and execution (shared) |
+| `SchedulePdfExporter.cs` | Renders a week to a PDF/PNG (QuestPDF) laid out like the on-screen grid, saved to Downloads |
 | `IAssistant.cs` / `AssistantFactory.cs` | Assistant interface + provider selection (Claude vs Gemini) |
 | `ClaudeAssistant.cs` | Anthropic SDK + Claude's tool-calling loop |
 | `GeminiAssistant.cs` | Google Gemini REST + function-calling loop (no SDK dependency) |
@@ -94,3 +100,4 @@ Set `ANTHROPIC_API_KEY` as a Windows environment variable there too.
 - "Swap shifts 1 and 2" — exchanges who's on each (refused if it would double-book, unless you override)
 - "Sarah's available Fridays 4pm to close" — then try to book her outside that, and it'll refuse
 - "Put Sarah on a second shift Friday night" — blocked as a double-booking unless you say to override
+- "Download a PDF of this week's schedule" (or "export it as a PNG") — saves to your Downloads folder and opens it

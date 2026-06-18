@@ -73,6 +73,8 @@ public static class SelfTest
             foreach (var s in svc.ShiftsForEmployee("Sarah"))
                 Console.WriteLine($"  #{s.Id} {s.Day} {s.Role}");
 
+            CheckExport(svc);
+
             CheckAssistantSchemas(svc);
 
             Console.WriteLine("\nSELFTEST OK");
@@ -81,6 +83,21 @@ public static class SelfTest
         {
             if (File.Exists(dbPath)) File.Delete(dbPath);
         }
+    }
+
+    /// <summary>Render the seeded week to PDF and PNG bytes and confirm both come out non-empty.</summary>
+    private static void CheckExport(SchedulerService svc)
+    {
+        Console.WriteLine("\n== Export weekly schedule (PDF + PNG) ==");
+        var week = new DateTime(2026, 6, 19); // the seeded Friday's week
+
+        var (pdf, pdfExt) = SchedulePdfExporter.Render(svc, week, ScheduleExportFormat.Pdf);
+        var (png, pngExt) = SchedulePdfExporter.Render(svc, week, ScheduleExportFormat.Png);
+        Console.WriteLine($"  {pdfExt.ToUpperInvariant()}: {pdf.Length:n0} bytes");
+        Console.WriteLine($"  {pngExt.ToUpperInvariant()}: {png.Length:n0} bytes");
+
+        if (pdf.Length == 0 || png.Length == 0)
+            throw new Exception("Export produced an empty file.");
     }
 
     /// <summary>
