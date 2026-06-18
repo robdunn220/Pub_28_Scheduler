@@ -62,9 +62,9 @@ public static class SchedulePdfExporter
             {
                 page.Size(PageSizes.A4.Landscape());
                 page.Margin(16);
-                // WrapAnywhere lets long unbreakable tokens (e.g. "5:00pm–11:00pm") wrap inside a
-                // narrow cell instead of overflowing it.
-                page.DefaultTextStyle(t => t.FontSize(10).FontColor(Colors.Black).WrapAnywhere());
+                // QuestPDF's layout engine wraps long unbreakable tokens (e.g. "5:00pm–11:00pm")
+                // inside a narrow cell automatically, so they don't overflow it.
+                page.DefaultTextStyle(t => t.FontSize(10).FontColor(Colors.Black));
 
                 page.Header().Column(col =>
                 {
