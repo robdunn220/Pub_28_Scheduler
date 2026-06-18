@@ -14,8 +14,17 @@ public sealed record ToolDef(string Name, string Description, Dictionary<string,
 public sealed class SchedulerTools
 {
     private readonly SchedulerService _svc;
+    private readonly Func<DateTime>? _currentWeekStart;
 
-    public SchedulerTools(SchedulerService svc) => _svc = svc;
+    /// <param name="currentWeekStart">
+    /// Returns the Monday of the week currently shown in the UI, so "export the schedule in view"
+    /// can default to it. Null (e.g. in headless tests) falls back to the week containing today.
+    /// </param>
+    public SchedulerTools(SchedulerService svc, Func<DateTime>? currentWeekStart = null)
+    {
+        _svc = svc;
+        _currentWeekStart = currentWeekStart;
+    }
 
     /// <summary>The system prompt, shared across providers. Recomputed each call so "today" stays current.</summary>
     public static string SystemPrompt() =>
@@ -45,6 +54,12 @@ public sealed class SchedulerTools
         manager which shifts opened up so they can reassign or remove them. The add_shift and
         assign_shift tools automatically REFUSE to double-book someone (two overlapping shifts)
         or to schedule them on a date they're off, and return the reason.
+
+        You can also export the weekly schedule to a file with export_schedule: "pdf" or "png",
+        saved to the manager's Downloads folder and opened automatically. When the manager asks to
+        download/save/print/export the schedule "in view" or "this week" without naming a week,
+        call it with no week_of so it uses the week currently on screen. Only pass week_of (any
+        ISO date in the target week) if they ask for a specific other week.
 
         Guidance:
         - Use the tools to actually make changes; don't just describe what you would do.
@@ -104,6 +119,8 @@ public sealed class SchedulerTools
                     var emps = _svc.ListEmployees();
                     return emps.Count == 0 ? "No employees yet."
                         : string.Join("\n", emps.Select(e => $"- {e.Name} ({e.Area})"));
+                case "export_schedule":
+                    return ExportSchedule(StrOrNull(args, "format"), StrOrNull(args, "week_of"));
                 default:
                     return $"Unknown tool: {name}";
             }
@@ -112,6 +129,45 @@ public sealed class SchedulerTools
         {
             return $"Error running {name}: {ex.Message}";
         }
+    }
+
+    /// <summary>
+    /// Render the schedule for a week to a PDF or PNG and save it to the user's Downloads folder,
+    /// then open it. With no <paramref name="weekOf"/> date, exports the week currently on screen.
+    /// </summary>
+    private string ExportSchedule(string? format, string? weekOf)
+    {
+        var fmt = string.Equals(format?.Trim(), "png", StringComparison.OrdinalIgnoreCase)
+            ? ScheduleExportFormat.Png : ScheduleExportFormat.Pdf;
+
+        DateTime week;
+        if (!string.IsNullOrWhiteSpace(weekOf)
+            && DateTime.TryParse(weekOf, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var parsed))
+            week = parsed;
+        else
+            week = _currentWeekStart?.Invoke() ?? DateTime.Today;
+
+        var path = SchedulePdfExporter.Export(_svc, week, fmt);
+        TryOpen(path);
+
+        var weekStart = SchedulePdfExporter.WeekStart(week);
+        return $"Saved the schedule for the week of {weekStart:MMM d, yyyy} as a "
+             + $"{fmt.ToString().ToUpperInvariant()} to your Downloads folder ({path}) and opened it.";
+    }
+
+    /// <summary>Open a saved file with the OS default app. Best-effort — export still succeeds if this fails.</summary>
+    private static void TryOpen(string path)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = path,
+                UseShellExecute = true,
+            });
+        }
+        catch { /* opening is a convenience; the file is already saved */ }
     }
 
     private static string Format(List<Shift> shifts) =>
@@ -218,6 +274,15 @@ public sealed class SchedulerTools
             "Show an employee's upcoming days off (specific dates).",
             new() { ["employee_name"] = P("string", "Employee name") },
             new[] { "employee_name" }),
+        new("export_schedule",
+            "Export the weekly schedule grid to a file in the user's Downloads folder and open it. "
+            + "Defaults to the week currently shown on screen — only pass week_of to export a different week.",
+            new()
+            {
+                ["format"] = P("string", "File format: \"pdf\" (default) or \"png\""),
+                ["week_of"] = P("string", "Optional ISO date (yyyy-MM-dd); any day in the target week. Omit to export the week currently in view."),
+            },
+            Array.Empty<string>()),
     };
 
     // ---------- argument helpers (robust to string/number JSON) ----------

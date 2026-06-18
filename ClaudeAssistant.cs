@@ -20,9 +20,9 @@ public class ClaudeAssistant : IAssistant
     public string ProviderName => "Claude";
     public string ApiKeyEnvVar => "ANTHROPIC_API_KEY";
 
-    public ClaudeAssistant(SchedulerService svc)
+    public ClaudeAssistant(SchedulerService svc, Func<DateTime>? currentWeekStart = null)
     {
-        _tools = new SchedulerTools(svc);
+        _tools = new SchedulerTools(svc, currentWeekStart);
         var apiKey = Environment.GetEnvironmentVariable(ApiKeyEnvVar);
         HasApiKey = !string.IsNullOrWhiteSpace(apiKey);
         if (HasApiKey)

@@ -21,7 +21,8 @@ public partial class MainWindow : Window
         // schedule.db lives next to the executable.
         var dbPath = System.IO.Path.Combine(AppContext.BaseDirectory, "schedule.db");
         _svc = new SchedulerService(dbPath);
-        _assistant = AssistantFactory.Create(_svc);
+        // Hand the assistant a live read of the week on screen, so "export the schedule in view" works.
+        _assistant = AssistantFactory.Create(_svc, () => _weekStart);
 
         SendButton.Click += (_, _) => Send();
         RefreshButton.Click += (_, _) => RefreshSchedule();

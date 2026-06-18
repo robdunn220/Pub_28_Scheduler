@@ -28,9 +28,9 @@ public class GeminiAssistant : IAssistant
     public string ProviderName => "Gemini";
     public string ApiKeyEnvVar => "GEMINI_API_KEY";
 
-    public GeminiAssistant(SchedulerService svc)
+    public GeminiAssistant(SchedulerService svc, Func<DateTime>? currentWeekStart = null)
     {
-        _tools = new SchedulerTools(svc);
+        _tools = new SchedulerTools(svc, currentWeekStart);
         _apiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY")
                ?? Environment.GetEnvironmentVariable("GOOGLE_API_KEY");
         HasApiKey = !string.IsNullOrWhiteSpace(_apiKey);
