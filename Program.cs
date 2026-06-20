@@ -23,6 +23,12 @@ class Program
             return;
         }
 
+        if (args.Contains("--date-test"))
+        {
+            AiTest.RunDateTests();
+            return;
+        }
+
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 
